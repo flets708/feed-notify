@@ -52,7 +52,7 @@
 ```env
 PORT = 3001
 HTTPS = "true"
-REACT_APP_LIFF_ID_DEV="1656631051-5zm2Rwg1"
+REACT_APP_LIFF_ID_DEV="9876543210-bbbbbbbb"
 REACT_APP_API_URL_DEV="http://localhost:3000/dev"
 ```
 
