@@ -48,6 +48,14 @@
 
 * `server`ディレクトリ上で`serverless dynamodb install`および`serverless offline start`を実行し、サーバ側を起動させる。（`serverless-offline`および`serverless-dynamodb-local`プラグインを使用。なお、`serverless dynamodb install`は`.dynamodb`ディレクトリが作成されたら一度だけ実施すればOK）
 * `client`ディレクトリ上で`.env.development.local`ファイルを作成したうえで以下のように設定を加える。その後、`npm run start`もしくは`yarn start`でクライアントサイドを起動
+
+```env
+PORT = 3001
+HTTPS = "true"
+REACT_APP_LIFF_ID_DEV="1656631051-5zm2Rwg1"
+REACT_APP_API_URL_DEV="http://localhost:3000/dev"
+```
+
 * Postman等で`http://localhost:3000/dev/webhook`にpostリクエストを飛ばしたり、クライアントサイドの画面でいろいろ動作確認を行う。postリクエストのBody例は以下。`body.events[].message.text`の内容が"?"や"設定"などの場合は設定画面、そうでない場合はRSSフィード通知をLINEに送信する。実際にLINEと連携もされるため、LINEのデスクトップアプリも入れておくとよい。
 
 ```json
