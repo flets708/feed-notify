@@ -1,0 +1,25 @@
+{
+  "name": "feed-notify",
+  "version": "1.0.0",
+  "description": "test",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "GNU",
+  "dependencies": {
+    "@line/bot-sdk": "^7.4.0",
+    "aws-sdk": "^2.1033.0",
+    "axios": "^0.24.0",
+    "cheerio": "^1.0.0-rc.10",
+    "rss-parser": "^3.12.0",
+    "serverless-offline": "^8.3.0"
+  },
+  "devDependencies": {
+    "serverless-dynamodb-local": "^0.2.40",
+    "serverless-layers": "^2.5.1",
+    "serverless-vpc-plugin": "^1.0.4"
+  }
+}

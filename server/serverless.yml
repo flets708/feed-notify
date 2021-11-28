@@ -1,0 +1,116 @@
+# serverless.yml
+
+service: feed-notify
+projectDir: ../
+provider:
+  name: aws
+  runtime: nodejs14.x
+  timeout: 30
+  lambdaHashingVersion: 20201221
+  region: ap-northeast-1
+  stage: dev
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - dynamodb:Query
+        - dynamodb:Scan
+        - dynamodb:GetItem
+        - dynamodb:PutItem
+        - dynamodb:UpdateItem
+        - dynamodb:DeleteItem
+      Resource:
+        - { "Fn::GetAtt": ["UsersDynamoDBTable", "Arn"] }
+  eventBridge:
+    useCloudFormation: true
+  environment:
+    USERS_TABLE: ${self:custom.tableName}
+    LINE_ACCESS_TOKEN: ${file(../sls-settings.json):TOKEN}
+    LIFF_ID_PROD: ${file(../sls-settings.json):LIFF_ID_PROD}
+    LIFF_ID_DEV: ${file(../sls-settings.json):LIFF_ID_DEV}
+
+package:
+  patterns:
+    - "!package.json"
+    - "!package-lock.json"
+    - "!yarn.lock"
+    - "!.dynamodb/**"
+    - "!source/*"
+
+functions:
+  webhook:
+    handler: functions/webhook.handler
+    events:
+      - http:
+          method: ANY
+          path: "/webhook"
+      - eventBridge:
+          schedule: cron(0 1,5,9,13,21 * * ? *)
+          input:
+            body: '{"events": [{"type": "message","message": {"text": "xxx"},"source": {"userId": "all"},"replyToken": "xxx"}]}'
+  feed:
+    handler: functions/feed.handler
+    events:
+      - http:
+          method: ANY
+          path: "/feed"
+          cors:
+            origin: "*"
+            headers:
+              - Content-Type
+              - X-Amz-Date
+              - Authorization
+              - X-Api-Key
+              - X-Amz-Security-Token
+              - X-Amz-User-Agent
+
+plugins:
+  - serverless-vpc-plugin
+  - serverless-offline
+  - serverless-layers
+  - serverless-dynamodb-local
+custom:
+  serverless-layers:
+    layersDeploymentBucket: ${file(../sls-settings.json):LAYERS_DEPLOYMENT_BUCKET}
+  tableName: "users-table-${self:provider.stage}"
+  dynamodb:
+    start:
+      migrate: true
+      inMemory: true
+      port: 8000
+      seed: true
+    stages:
+      - dev
+    seed:
+      development:
+        sources:
+          - table: ${self:custom.tableName}
+            sources: [./source/source.json]
+  vpcConfig:
+    enabled: true
+    cidrBlock: "10.20.0.0/16"
+    createNatGateway: true
+    createNetworkAcl: false
+    createDbSubnet: false
+    createFlowLogs: false
+    createBastionHost: false
+    createNatInstance: false
+    createParameters: false
+    zones:
+      - ap-northeast-1a
+    exportOutputs: true
+
+resources:
+  Resources:
+    UsersDynamoDBTable:
+      Type: "AWS::DynamoDB::Table"
+      Properties:
+        AttributeDefinitions:
+          - AttributeName: userId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: userId
+            KeyType: HASH
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+        TableName: ${self:custom.tableName}

@@ -1,0 +1,44 @@
+[
+  {
+    "userId": "Uf6a6d661067ec7ef01d7a086b8bad00d",
+    "lastSubscribe": "2021-11-22T10:24:35.168Z",
+    "subscribeFeeds": [
+      {
+        "feedUrl": "https://www.publickey1.jp/atom.xml",
+        "siteUrl": "https://www.publickey1.jp/",
+        "lastModifiedAt": "2021-11-21T23:23:51.240Z",
+        "addedAt": "2021-11-22T12:23:51.240Z",
+        "lastAction": "added",
+        "title": "Publickey",
+        "enabled": true,
+        "feedId": "83004bd7-73f1-412e-aae1-0504cad9c6de"
+      },{
+        "feedUrl": "https://dev.classmethod.jp/feed/",
+        "siteUrl": "https://dev.classmethod.jp",
+        "lastModifiedAt": "2021-11-21T23:24:35.168Z",
+        "addedAt": "2021-11-22T05:24:35.168Z",
+        "lastAction": "added",
+        "title": "DevelopersIO",
+        "enabled": true,
+        "feedId": "a1f0211d-a66f-4e54-a073-4477279a3f1c"
+      }
+    ],
+    "name": "新田光"
+  },{
+    "userId": "U76c6fafa70e0bd863574a915afb486fa",
+    "subscribeFeeds": [
+      {
+        "feedUrl": "https://news.mynavi.jp/rss/kurashi/life/dual_income",
+        "siteUrl": "https://news.mynavi.jp/top/kurashi/life/dual_income/",
+        "lastModifiedAt": "2021-11-21T23:23:32.489Z",
+        "addedAt": "2021-11-21T23:23:32.489Z",
+        "lastAction": "added",
+        "title": "マイナビニュース ワーク＆ライフ 育児",
+        "enabled": true,
+        "feedId": "e5db5459-5fba-4f39-b37b-5f3c9f8a419f"
+      }
+    ],
+    "lastSubscribe": "2021-11-01T05:15:16.919Z",
+    "name": "新田友希"
+   }
+]

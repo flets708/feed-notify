@@ -1,0 +1,95 @@
+# serverless.yml
+
+service: feed-notify-client
+projectDir: ../
+provider:
+  name: aws
+  runtime: nodejs14.x
+  timeout: 30
+  lambdaHashingVersion: 20201221
+  region: ap-northeast-1
+  stage: dev
+
+plugins:
+  - serverless-s3-sync
+  - serverless-cloudfront-invalidate
+custom:
+  webSiteName: ${self:service}
+  s3Sync:
+    - bucketName: ${self:custom.webSiteName}
+      localDir: ./build
+  cloudfrontInvalidate:
+    - distributionIdKey: "CloudFrontId"
+      items:
+        - "/*"
+
+resources:
+  Resources:
+    StaticSite:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: ${self:custom.webSiteName}
+        AccessControl: PublicRead
+        WebsiteConfiguration:
+          IndexDocument: index.html
+          ErrorDocument: error.html
+    StaticSiteS3BucketPolicy:
+      Type: AWS::S3::BucketPolicy
+      Properties:
+        Bucket:
+          Ref: StaticSite
+        PolicyDocument:
+          Statement:
+            - Sid: PublicReadGetObject
+              Effect: Allow
+              Principal: "*"
+              Action:
+                - s3:GetObject
+              Resource:
+                Fn::Join: ["", ["arn:aws:s3:::", { "Ref": "StaticSite" }, "/*"]]
+    StaticSiteCloudFront:
+      Type: AWS::CloudFront::Distribution
+      Properties:
+        DistributionConfig:
+          Enabled: true
+          Comment: "Delivery Static Site"
+          PriceClass: PriceClass_200
+          DefaultRootObject: index.html
+          Origins:
+            - DomainName:
+                Fn::GetAtt:
+                  - StaticSite
+                  - DomainName
+              Id: S3Origin
+              CustomOriginConfig:
+                OriginProtocolPolicy: http-only
+          DefaultCacheBehavior:
+            TargetOriginId: S3Origin
+            ViewerProtocolPolicy: redirect-to-https
+            AllowedMethods:
+              - HEAD
+              - GET
+            CachedMethods:
+              - HEAD
+              - GET
+            Compress: true
+            DefaultTTL: 86400
+            MaxTTL: 31536000
+            MinTTL: 1
+            ForwardedValues:
+              QueryString: true
+              Cookies:
+                Forward: none
+            SmoothStreaming: false
+
+  Outputs:
+    StaticContentsCloudFrontUrl:
+      Value:
+        Fn::Join:
+          - ""
+          - - "https://"
+            - Fn::GetAtt:
+                - StaticSiteCloudFront
+                - DomainName
+    CloudFrontId:
+      Value: !Ref StaticSiteCloudFront
