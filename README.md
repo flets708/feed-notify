@@ -80,7 +80,7 @@ REACT_APP_API_URL_DEV="http://localhost:3000/dev"
 ```
 
 * Postman等で`http://localhost:3000/dev/webhook`にpostリクエストを飛ばしたり、クライアントサイドの画面でいろいろ動作確認を行う。postリクエストのBody例は以下。`body.events[].message.text`の内容が"?"や"設定"などの場合は設定画面、そうでない場合はRSSフィード通知をLINEに送信する。実際にLINEと連携もされるため、LINEのデスクトップアプリも入れておくとよい。
-* **replyTokenは`xxx`で固定する。**そうしないと、プッシュメッセージが配信されないため。また、LINEユーザID部分は`all`とすると、全ユーザにプッシュメッセージを送信可能。
+* プッシュメッセージが配信されないため、**replyTokenは`xxx`で固定する。**。また、LINEユーザID部分は`all`とすると、全ユーザにプッシュメッセージを送信可能。
 
 ```json
 {
