@@ -253,7 +253,7 @@ Leaveを押下すると、確認のモーダルウィンドウが表示され、
 
 ## ソース概要
 
-### /
+### /（root）
 
 #### README.md
 
@@ -330,10 +330,54 @@ Body #ボディ部分のロジック。
 
 ### Missing Authentication Tokenエラー
 
+開発中、`sls offline start`でローカル開発環境では問題なくバックエンドAPIが動作するのに、AWSにデプロイすると`Missing Authentication Token`エラーが返されるようになった。  
+特に認証トークンを求めるような仕様にはしてないはず・・・ということで調べてみると、[公式回答](https://aws.amazon.com/jp/premiumsupport/knowledge-center/api-gateway-authentication-token-errors/)曰く認証トークンがない時だけでなく存在しないリソースやメソッドにリクエストを投げた時もこのレスポンスになるとのこと。（だったら、いかにも認証トークンエラーっぽい文言にしないでほしいですが・・・）  
+  
+ただ、メソッドやリソースが存在しないといってもローカル開発環境では問題なく動作するし・・・と色々調べたところ、実は当時`serverless.yml`に設定していた下記が誤っていることが判明。
+
+```yml
+functions:
+  webhook:
+    handler: functions/webhook.handler
+    events:
+      - http:
+          method: ANY
+          path: /webhook/{proxy+}  #<=この部分
+```
+
+この設定を書いたとき、`https://xxxxxxx/webhook/xxx-xxx-1234{uuid}`のように、パスパラメータ付きでリクエストすることも想定していたのですが、どうも{proxy+}は空白はNGのようでした。ただ、`serverless-offline`を使った開発環境では空白でも動作してしまうので、混乱してしまいました・・・。  
+改めて、下記のようにしたら動作することを確認。
+
+```yml
+functions:
+  webhook:
+    handler: functions/webhook.handler
+    events:
+      - http:
+          method: ANY
+          path: /webhook/{proxy+}  
+      - http:               #追加
+          method: ANY       #追加
+          path: /webhook   #追加
+```
+
+その後、アプリ構築を進める中でパスパラメータを使うことがないと分かったので、現在の形で決着。
+
+```yml
+functions:
+  webhook:
+    handler: functions/webhook.handler
+    events:
+      - http:
+          method: ANY
+          path: "/webhook"
+```
+
 ### https化
 
 LIFFが連携するURL（Endpoint URL）が、httpsサイトでないと設定できないことが途中で判明。  
 本番環境については、S3にホスティングしているURLを直接指定するのではなく、Cloudfrontを追加でデプロイすることで、CloudfrontのURLはhttps化しているためそちらを指定することで解決した。  
+  
 開発環境については、`yarn start`ではどうしても`http://localhost:3000`になってしまうと思っていたが、[こちらのサイト](https://chaika.hatenablog.com/entry/2020/09/08/083000)を参照し`.env.development.local`で`HTTPS = "true"`を定義することで簡単にhttps化できることを知り、それで解決できた。  
 自分でオレオレ証明書を発行して・・・とそれなりに面倒な手順を踏もうかと思っていたので、助かりました。
 
@@ -341,6 +385,7 @@ LIFFが連携するURL（Endpoint URL）が、httpsサイトでないと設定�
 
 RSSフィード配信サイトに情報を取りに行く際、LambdaがインターネットアクセスするためにVPC・NAT Gateway等の定義をする必要があったが、それらを簡単に実施するために`serverless-vpc-plugin`を使って開発していた。  
 その後、Lambda上でテストをする中でRSSフィードをうまく取得できるサイトと、取得できないサイトがあることがわかった。  
+  
 原因を調べていくと`serverless-vpc-plugin`で構築した中でLambdaに割り当てられるセキュリティグループは、インターネットへのアウトバウンドアクセスが443（https）しか許可されておらず、"http://~"の配信サイトにアクセスできていないことが判明（特に、画像データだけはhttps→httpにリダイレクトして配信しているようなサイトもあり、なかなか検知しづらかったです・・・）。  
 `serverless.yml`上に自分でVPC等のリソースを定義しようかとも考えたが、結局`deploy.ps1`上でLambda実行用のセキュリティグループにOutbound 80ポートの穴あけを追加で定義することで解決しました。
 
@@ -355,12 +400,14 @@ Write-Output "Outbound HTTP Access added to Security Group"
 
 開発している途中で、`sls deploy`するとタイトルの通りのエラーが表示されるようになった。  
 調査した結果、**私の場合は`serverless-layers`と`serverless-s3-sync`の両方を同一ディレクトリにインストールしていたことが原因**と判明。（もともと`server/serverless.yml`でクライアント側のソースも含めて一括デプロイしていました）  
+  
 `serverless-layers`は`server`ディレクトリ、`serverless-s3-sync`は`client`ディレクトリにインストールし、それぞれのディレクトリに分割して`serverless.yml`を定義たうえで`deploy.ps1`を用いて一括実行する形に見直すことで解決した。
 
 ### yarn build時の環境変数読み込み
 
 `deploy.ps1`でバックエンド側のデプロイとクライアント側のソースビルド・デプロイを一括実行するようスクリプトを組む中で、タイトル部分の挙動が手動実行時と違うことを検知した。  
 もともとスクリプトを組む前は[こちらのサイト](https://chaika.hatenablog.com/entry/2020/10/14/083000)を参考にproduction環境での環境変数を`env.production`に定義していたが、スクリプト上で`.env.production`ファイルを作成&`yarn build`を実行するとうまく`env.production`ファイルを読み込まないことが判明。  
+  
 以下のように`.env.production`ファイルを使わず、直接環境変数に設定することで解決しました。おそらく権限周りの問題なのだと思われるが、よくわからず・・・。
 
 ```shell
