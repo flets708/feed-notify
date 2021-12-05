@@ -62,7 +62,12 @@ const getOgImage = async url => {
     .then(res => {  
         const html = res.data;
         const $ = cheerio.load(html);
-        return $('meta[property="og:image"]').attr('content');
+        const tempOgImage = $('meta[property="og:image"]').attr('content')
+        if(!tempOgImage){
+          return 'NoImage'
+        }else{
+          return tempOgImage
+        }
     })
     .catch(e => {console.error(e); return 'NoImage'})
   return new Promise( resolve => resolve(ogImage));
