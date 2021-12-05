@@ -145,11 +145,16 @@ plugins:
 
 *※2 DynamoDBレコードの構成は以下の通り。*
 
+`userId`:ユーザID  
+`lastSubscribe`:RSSフィードの最終配信日時  
+`subscribeFeeds`:購読するRSSフィード情報(ここではPublicKeyとDevelopersIOの2つ)  
+`name`:ユーザ名  
+
 ```json
 {
- "userId": "U0000000000000000000000000000000", //ユーザID
- "lastSubscribe": "2021-11-25T01:00:19.091Z", //RSSフィードの最終配信日時
- "subscribeFeeds": [ //購読するRSSフィード情報(ここではPublicKeyとDevelopersIOの2つ)
+ "userId": "U0000000000000000000000000000000", 
+ "lastSubscribe": "2021-11-25T01:00:19.091Z", 
+ "subscribeFeeds": [
   {
    "feedUrl": "https://www.publickey1.jp/atom.xml",
    "addedAt": "2021-11-22T12:23:51.240Z",
@@ -171,7 +176,7 @@ plugins:
    "enabled": true
   }
  ],
- "name": "XXX" //ユーザ名
+ "name": "XXX"
 }
 ```
 
