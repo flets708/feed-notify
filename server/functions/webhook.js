@@ -21,6 +21,7 @@ module.exports.handler = async (event) => {
   const body = JSON.parse(event.body)
   const reqId = body.events[0].source.userId
   const type = body.events[0].type  
+  const replyToken = body.events[0].replyToken  
   const prefArr = ["設定", "一覧", "確認", "?", "？"]
 
   logger(event, reqId, type)
@@ -75,9 +76,14 @@ module.exports.handler = async (event) => {
               messages.splice(5)
               console.log(`Messages for ${result.userId} are spliced because their length exceeds 5`);
             }
-    
-            await client.pushMessage(result.userId, messages)
-            .catch(e => console.error(e))
+
+            if(replyToken === "xxx"){
+              await client.pushMessage(result.userId, messages)
+              .catch(e => console.error(e))
+            }else{
+              await client.replyMessage(replyToken, messages)
+              .catch(e => console.error(e))
+            }
           }    
 
           const updateResult = await updateLastSubscribe(result)
@@ -94,8 +100,13 @@ module.exports.handler = async (event) => {
         
         console.log(`${reqId},Message Is${JSON.stringify(messages, null, 2)}`);
 
-        await client.pushMessage(reqId, messages)
-        .catch(e => console.error(e))
+        if(replyToken === "xxx"){
+          await client.pushMessage(reqId, messages)
+          .catch(e => console.error(e))
+        }else{
+          await client.replyMessage(replyToken, messages)
+          .catch(e => console.error(e))
+        }
       }
 
       break
@@ -113,8 +124,13 @@ module.exports.handler = async (event) => {
         "text": `${reqName}さん、フォローありがとう！`
       }]
 
-      await client.pushMessage(reqId, messages)
-      .catch(e => console.error(e))
+      if(replyToken === "xxx"){
+        await client.pushMessage(reqId, messages)
+        .catch(e => console.error(e))
+      }else{
+        await client.replyMessage(replyToken, messages)
+        .catch(e => console.error(e))
+      }
 
       break
 

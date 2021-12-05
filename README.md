@@ -5,9 +5,9 @@
 * RSSFeedで配信された記事を、LINE Messaging API経由で購読する
 * 購読対象の記事は、設定用サイトで追加・削除・有効化・無効化が可能
 * 定期購読のほかに、LINEでメッセージを送ることで記事を手動購読することも可能
-* システム構成は以下の通り
+* システム構成は以下の通り。AWS上にソースをデプロイし、LINE Messaging API・LIFFと連携させる。
 
-<img src="./doc/FeedNotify_Configuration.drawio.png" width="70%">
+![システム構成図](doc/FeedNotify_Configuration.drawio.png "Architecture")
 
 ## 環境
 
@@ -21,6 +21,29 @@
 ## 使い方
 
 ### ⓪ LINE DEVELOPERSで、Messaging APIと、開発環境用・本番環境用それぞれのLIFFを設定
+
+下図のように、Messaging APIと、開発環境用・本番環境用それぞれのLIFFで計3つのチャネルを作成する。
+![channels](doc/channels.png "channels")
+
+Messaging APIを設定する上での参考
+
+* [LINE Messaging APIの概要](https://developers.line.biz/ja/docs/messaging-api/overview/)
+* [Messaging APIを始めよう](https://developers.line.biz/ja/docs/messaging-api/getting-started/)
+* [（チュートリアル）Node.jsを使ってサンプル応答ボットを作る](https://developers.line.biz/ja/docs/messaging-api/nodejs-sample/)
+
+LIFF(LINE Front-end Framework)を設定する上での参考
+
+* [LINE Front-end Framework](https://developers.line.biz/ja/docs/liff/overview/#operating-environment)
+* [https://developers.line.biz/ja/docs/liff/getting-started/](https://developers.line.biz/ja/docs/liff/getting-started/)
+
+Messaging APIとAWS上のアプリケーションを連携させるうえで、下図のChannel Access TokenとWebhook URLがポイントとなる。
+
+![WebhookURL](doc/webhook.png "WebhookURL")
+![Channel Access Token](doc/channel_access_token.png "Channel Access Token")
+
+また、LIFFの設定におけるポイントは下図の通り。
+
+![LIFF Detail](doc/liff_detail.png "LIFF Detail")
 
 ### ① 各モジュールを`npm install`でインストール
 
@@ -57,6 +80,7 @@ REACT_APP_API_URL_DEV="http://localhost:3000/dev"
 ```
 
 * Postman等で`http://localhost:3000/dev/webhook`にpostリクエストを飛ばしたり、クライアントサイドの画面でいろいろ動作確認を行う。postリクエストのBody例は以下。`body.events[].message.text`の内容が"?"や"設定"などの場合は設定画面、そうでない場合はRSSフィード通知をLINEに送信する。実際にLINEと連携もされるため、LINEのデスクトップアプリも入れておくとよい。
+* **replyTokenは`xxx`で固定する。**そうしないと、プッシュメッセージが配信されないため。また、LINEユーザID部分は`all`とすると、全ユーザにプッシュメッセージを送信可能。
 
 ```json
 {
@@ -87,84 +111,52 @@ REACT_APP_API_URL_DEV="http://localhost:3000/dev"
 
 以下の内容が`deploy.ps1`実行後に表示されるため、`Webhook URL`をMessaging APIの`Webhook URL`に、`Endpoint URL`をLIFFの`Endpoint URL`に設定する
 
-```powershell
+```shell
 *********************************
 **LINE DEVELOPERS CONFIGURATION**
-Endpoint URL
+Webhook URL for LINE Messaging API
 https://xxxxxxxxxx.execute-api.ap-northeast-1.amazonaws.com/dev/webhook
-Client URL
+Endpoint URL for LIFF
 https://xxxxxxxxxxxxxx.cloudfront.net
 *********************************
 ```
 
 ## 使ったサービス・言語・フレームワーク
 
-### バックエンド
-
 | サービス・言語等   | 詳細                                                                                                                                                                                                                |
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 言語・環境         | バックエンドのロジックはすべてNode.js v14.17.5で構築。                                                                                                                                                              |
-| フレームワーク     | フレームワークはServerless Framework v2.66.2を用いて、AWS上サービスをデプロイした。 また、いくつかプラグインを導入した（※）。                                                                                       |
+| フレームワーク     | フレームワークはServerless Framework v2.66.2を用いて、AWS上サービスをデプロイした。 また、いくつかプラグインを導入した（*※1*）。                                                                                    |
 | LINE Messaging API | LINE上でのメッセージを受信し、適切な応答をするためにLINE Messaging APIを導入。無料枠で利用するので、月1,000件のメッセージ送信数制限には要注意・・・。応答はFlex Message（カルーセル型）もしくはテキスト形式で実施。 |
 | LIFF               | LINE Front-end Framework (LIFF)を使って、設定用のWebサイトで、LINEログインを利用しユーザID・名前・プロフィール画像を取得。                                                                                          |
-| データベース       | AWS DynamoDBにユーザごとの情報を格納。                                                                                                                                                                              |
+| データベース       | AWS DynamoDBにユーザごとの情報（*※2*）を格納。                                                                                                                                                                      |
+| UI                 | React + React-Bootstrap + Fontawesomeで設定画面のUIを構築。                                                                                                                                                         |
 
-### UI
+*※1 利用したServerless Frameworkのプラグインは以下の通り。*
 
-aaa
-
-### Node.js
-
-Version 14.17.5で構築。
-Serverless Frameworkでバックエンド構築を進め、LINEとの連携はMessaging APIを使用。
-設定用のWebサイトは、LIFF＋Reactで作成。画面UIについては、React-Bootstrapを利用。
-AWS DynamoDBで、ユーザ情報を管理。
-
-### Serverless Framework
-
-Version 2.66.2で構築。
-また、以下のプラグインを導入。
-
-```shell
+```yml
 plugins:
-  - serverless-dynamodb-local //DynamoDB接続部分の開発・テスト用
-  - serverless-vpc-plugin //Lambda用のVPC作成
-  - serverless-offline //ローカルでの開発・テスト
-  - serverless-s3-sync //ビルドしたフロントエンドのS3アップロード
-  - serverless-cloudfront-invalidate //CloudFrontのキャッシュ削除自動化
+  - serverless-dynamodb-local #Server側：DynamoDB接続部分の開発・テスト用
+  - serverless-vpc-plugin #Server側：Lambda用のVPC作成
+  - serverless-offline #Server側：ローカルでの開発・テスト
+  - serverless-s3-sync #Client側：ビルドしたフロントエンドのS3アップロード
+  - serverless-cloudfront-invalidate #Client側：CloudFrontのキャッシュ削除自動化
 ```
 
-### LINE Messaging API
-
-LINE上でのメッセージを受信し、適切な応答をするためにLINE Messaging APIを導入。無料枠で利用するので、月1,000件のメッセージ送信数制限には要注意・・・
-応答はFlex Message（カルーセル型）もしくはテキスト形式で実施。
-
-### LIFF
-
-設定用のWebサイトで、LINEログインを利用しユーザID・名前・プロフィール画像を取得するために導入。
-
-### React
-
-設定用のWebサイトはReactベースで構築。UIはReact-Bootstrap（とFontawesome）を導入。
-
-### DynamoDB
-
-パーティションキーはuserId(string)。ソートキーはなし。
-userIdはLINE Messaging APIにおけるuserIdに該当。
-項目ごとの属性情報は下記の通り。
+*※2 DynamoDBレコードの構成は以下の通り。*
 
 ```json
 {
  "userId": "U0000000000000000000000000000000", //ユーザID
  "lastSubscribe": "2021-11-25T01:00:19.091Z", //RSSフィードの最終配信日時
- "subscribeFeeds": [ //購読するRSSフィード情報
+ "subscribeFeeds": [ //購読するRSSフィード情報(ここではPublicKeyとDevelopersIOの2つ)
   {
    "feedUrl": "https://www.publickey1.jp/atom.xml",
    "addedAt": "2021-11-22T12:23:51.240Z",
    "siteUrl": "https://www.publickey1.jp/",
    "lastModifiedAt": "2021-11-21T23:23:51.240Z",
    "lastAction": "added",
-   "feedId": "83004bd7-73f1-412e-aae1-0504cad9c6de",
+   "feedId": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
    "title": "Publickey",
    "enabled": true
   },
@@ -174,7 +166,7 @@ userIdはLINE Messaging APIにおけるuserIdに該当。
    "siteUrl": "https://dev.classmethod.jp",
    "lastModifiedAt": "2021-11-21T23:24:35.168Z",
    "lastAction": "added",
-   "feedId": "a1f0211d-a66f-4e54-a073-4477279a3f1c",
+   "feedId": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
    "title": "DevelopersIO",
    "enabled": true
   }
@@ -185,80 +177,145 @@ userIdはLINE Messaging APIにおけるuserIdに該当。
 
 ## 機能説明
 
-イベントの一覧は以下。
+### 友達追加
 
-* 記事の配信(subscribe)
-  * 記事自動配信(subscribeFeeds, auto)
-  * 記事手動配信(subscribeFeeds, manual)
-* 友達の追加/解除
-  * 友達の追加(follow)
-  * 友達の解除(unfollow)
-* 記事取得先の制御(feedUrls)
-  * 記事取得先の追加(addFeedUrl)
-  * 記事取得先の一覧取得(getAllFeedUrl)
-  * 記事取得先無効化(disableFeedUrl)
-  * 記事取得先有効化(enableFeedUrl)
-  * 記事取得先の削除(deleteFeedUrl)
+![follow](doc/follow.png "follow")
 
-### 記事の配信
+LINE Messaging APIとして設定したアカウントを友達追加したときの動きは上の図①②の通り。  
+LIFF経由でユーザ名を取得し、メッセージを投稿する。ブロック解除時も同様のメッセージを投稿する。  
+なお、このタイミングでsubscribeFeeds配列が空のレコードがDynamoDB上で追加される。  
+（ブロック時、もしくはフォロー解除時にDynamoDB上からレコードが削除される。）
 
-* エンドポイント制御ファイル → `/webhook.js`  
-* DynamoDB制御ファイル → `/io/subscribe.js`
-* 自動配信定義 → Event Bridge (日本時間で6:00, 10:00, 14:00, 18:00, 22:00)
+### 記事配信
 
-| イベント     | エンドポイント | イベントタイプ   | db io          |
-| ------------ | -------------- | ---------------- | -------------- |
-| 記事自動配信 | /webhook       | - (Event Bridge) | subscribeFeeds |
-| 記事手動配信 | /webhook       | message          | subscribeFeeds |
+![subscribe](doc/subscribe.png "subscribe")
 
-### 友達の追加/解除
+日本時間で毎日6時から22時まで、4時間ごとに新着記事を配信する。（上図③）  
+なお、適当なメッセージ（後述の設定画面呼び出し用の文言を除く）を投稿すると、手動でも新着記事を取得できる。手動の場合は登録しているフィード配信先それぞれについて新着記事がなければメッセージを表示、もしあれば記事情報を表示する。（上図④⑤）  
+**LINE Messaging APIのカルーセル型の仕様で、10個までしか情報が載せられない**ため、記事が10個以上ある場合は配信サイトへのリンクを表示している。（上図⑥）  
+なお、定期配信でも手動配信でも、DynamoDBレコード上の`lastSubscribe`に定義された時刻から現在時刻の間に配信された記事を新着記事として表示する仕様となっている。
 
-* エンドポイント制御ファイル → `/webhook.js`  
-* DynamoDB制御ファイル → `/io/follow.js`
+### 設定画面
 
-| イベント   | エンドポイント | イベントタイプ | db io    | DynamoDB    |
-| ---------- | -------------- | -------------- | -------- | ----------- |
-| 友達の追加 | /webhook       | follow         | follow   | add new key |
-| 友達の解除 | /webhook       | unfollow       | unfollow | delete key  |
+![preferences_1](doc/preferences_1.png "preferences_1")
 
-### 記事取得先の制御
+特定のメッセージ（*※３*）を打つと、設定画面（S3にホスティングし、Cloudfront経由で配信している画面）にリダイレクトするURLが返される。（上図⑦）  
+これを押下することで、LIFF経由で設定画面にアクセスできる。（上図⑧）  
+上図⑨に示す、各機能の説明は以下の通り。
 
-* エンドポイント制御ファイル → `/feed.js`  
-* DynamoDB制御ファイル → `/io/feedList.js`
+| 操作                           | 内容                                                                                                                                                                  |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| その他メニュー表示             | 後述するその他のメニュー（MyData, Leave）を表示する。                                                                                                                 |
+| 設定保存                       | 本画面で操作した内容を保存（DynamoDBを更新）する。**このボタンを押さないと、本画面での操作は反映されない**ので要注意。成功すると、その旨アラート表示される。（上図⑩） |
+| 設定再読込み                   | 直最後に保存した設定を再読み込みする。                                                                                                                                |
+| フィードの追加                 | 購読対象のフィードを追加する。**ブログサイトのURLではなく、RSS FeedのURLを入れる必要がある**ため要注意。                                                              |
+| 各フィード購読の有効化・無効化 | トグルボタンを操作することで、リストから削除しなくても購読の有効化・無効化が可能。                                                                                    |
+| サイトへのリンク               | フィード配信元のサイトにアクセスできる。                                                                                                                              |
+| フィードの削除                 | 一覧からフィードを削除する。                                                                                                                                          |
 
-| イベント             | エンドポイント | メソッド | db io           | DynamoDB                       |
-| -------------------- | -------------- | -------- | --------------- | ------------------------------ |
-| 記事取得先の追加     | /feed          | POST     | addFeedList     | get current list & push update |
-| 記事取得先の一覧取得 | /feed          | GET      | getAllFeedList  | get current list               |
-| 記事取得先無効化     | /feed          | PUT      | disableFeedList | get current list & push update |
-| 記事取得先有効化     | /feed          | PUT      | enableFeedList  | get current list & push update |
-| 記事取得先の削除     | /feed          | DELETE   | deleteFeedList  | get current list & push update |
+*※３　"設定", "一覧", "確認", "?", "？"が該当。`server/functions/webhook.js`の`prefArr`にて該当の文字列を定義。*
+
+### 設定画面（その他メニュー）
+
+![preferences_2](doc/preferences_2.png "preferences_2")
+
+画面右上のハンバーガーボタンを押下すると、その他メニューが表示される。（上図⑪）  
+MyDataを押下すると、DynamoDBに保存されている自身の設定情報の全量が表示される。（上図⑫）  
+Leaveを押下すると、確認のモーダルウィンドウが表示され、そこでも「Leave」を押下すると設定画面が閉じる。「Cancel」を押下すると設定画面に戻る。（上図⑬）
+
+## 注意点（LINE Messaging APIの制約）
+
+2021年12月現在、LINE Messaging APIは以下の制約があるため、要注意。
+
+### 毎月のメッセージ配信数
+
+無料枠で配信できるメッセージは毎月1,000通まで（[料金プラン](https://www.linebiz.com/jp/service/line-official-account/plan/)）。  
+1日5回の定期配信であれば1か月約150通程度でありまだ余裕があるが、利用ユーザが増えると上限に引っかかる可能性があるため要注意。  
+なお、応答メッセージは通数にカウントされないものと思われるため、手動配信や設定画面呼び出しは応答メッセージを使い、1,000通にカウントされるのは定期配信のプッシュメッセージのみとしている。
+
+### 1度の配信でのメッセージ数
+
+1通のメッセージ配信には、5件までしかメッセージオブジェクトを指定できない（[プッシュメッセージを送る](https://developers.line.biz/ja/reference/messaging-api/#send-push-message)）。  
+そのため、登録できるRSSフィードは5サイトまでという制約がある。複数回に分けて配信してもいいが、その際は前述の毎月1,000通の上限に引っかかりやすくなる。そのため、現時点では制約としている。
+
+### 1通のメッセージに表示される記事の数
+
+本アプリでは新着記事をカルーセル型で配信しているが、その要素（バブル）の数は最大10個までという制約がある（[カルーセルテンプレート](https://developers.line.biz/ja/reference/messaging-api/#carousel)）。  
+そのため、新着記事が10個を超える場合は、新着記事をバブルで表示するのは9個までにして、10個目には配信元のサイトへのリンクを表示することとしている。
 
 ## ソース概要
 
+### /
+
+#### README.md
+
+本ドキュメント。
+
+#### /doc
+
+本ドキュメントで引用する画像などを格納。
+
+#### deploy.ps1
+
+`server`および`client`に格納されたソースをServerless Frameworkで一括デプロイするためのツール。  
+Powershellベースで記述している。
+
 ### /server
 
-#### /functions
+バックエンド側のロジックを格納している。  
+`server/serverless.yml`に記述したとおりに、AWS上にバックエンドのリソースがデプロイされる。
 
-#### /io
+#### /server/functions
 
-#### /lib
-
-`/lib`配下のモジュールは下記の通り。
+クライアントもしくはEventBridge経由で呼び出される、メインのロジックを格納。
 
 ```shell
-/lib
- logger.js //アクセスログをコンソールに出力
- dateUtil.js //日時のフォーマット、並べ替えを実施
- getFeedContents.js //URLと最終取得日付を引数に、記事情報を取得（カルーセルに入るよう、文字数も丸める）
- createMessages.js //イベントタイプがmessageだった場合のLineにプッシュするメッセージを作成
+webhook.js #フォロー時、メッセージ投稿時の動作（＝LINE Messaging APIからのフックもしくはEvent Bridgeによる実行時の動作）に対応するAPIの内容を記述
+feed.js #設定画面での各種操作で呼び出すAPIを記述
+```
+
+#### /server/io
+
+DynamoDBを操作するためのロジックを格納。
+
+```shell
+feedList.js #server/functions/feed.jsから呼び出され、DynamoDBを操作する。
+follow.js #フォローorブロック解除時、フォロー解除orブロック時にserver/functions/webhook.jsから呼び出され、DynamoDBを操作する。
+subscribe.js #記事の定期もしくは手動配信の際にserver/functions/webhook.jsから呼び出され、DynamoDBを操作する。
+```
+
+#### /server/lib
+
+```shell
+logger.js #アクセスログをコンソールに出力
+dateUtil.js #日時のフォーマット、並べ替えを実施
+getFeedContents.js #URLと最終取得日付を引数に、記事情報を取得（カルーセルに入るよう、文字数も丸める）
+createMessages.js #イベントタイプがmessageだった場合のLineにプッシュするメッセージを作成
 ```
 
 ### /client
 
-#### /src
+クライアント側（＝設定画面）のロジックを格納している。  
+`client/serverless.yml`に記述したとおりに、AWS上にバックエンドのリソースがデプロイされる。  
+前述の通り、Reactベースで構築している。  
+（今後修正する時間があればもう少しコンポーネントを分割して記述したい。あと、serverless frameworkを使わなくても、AWS CLIでデプロイすればよかったかも。）
 
-#### /src/components
+#### /client/src
+
+`create-react-app`でひな形を作った後、独自に追加して資源について説明する。
+
+```shell
+api.js #api(/server/functions/feed.js)を呼び出すための関数を定義。
+store.js #useContextおよびuseReducerで、ユーザ情報を格納するグローバルストアを定義。
+```
+
+#### /client/src/components
+
+```shell
+Layout #レイアウトを定義するとともに、LIFFライブラリ経由でユーザ常用を読み込み、グローバルストアに格納。
+Header #ヘッダ部分のロジック。その他メニューを押下したときの動作も記述。
+Body #ボディ部分のロジック。
+```
 
 ## ハマったところ
 
