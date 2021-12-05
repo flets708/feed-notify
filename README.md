@@ -137,13 +137,19 @@ https://xxxxxxxxxxxxxx.cloudfront.net
 *※1 利用したServerless Frameworkのプラグインは以下の通り。*
 
 ```yml
+#server/serverless.yml抜粋
 plugins:
-  - serverless-dynamodb-local #Server側：DynamoDB接続部分の開発・テスト用
-  - serverless-vpc-plugin #Server側：Lambda用のVPC作成
-  - serverless-offline #Server側：ローカルでの開発・テスト
-  - serverless-layers  #Server側：Lambda Layersを利用するためのプラグイン
-  - serverless-s3-sync #Client側：ビルドしたフロントエンドのS3アップロード
-  - serverless-cloudfront-invalidate #Client側：CloudFrontのキャッシュ削除自動化
+  - serverless-dynamodb-local #DynamoDB接続部分の開発・テスト用
+  - serverless-vpc-plugin #Lambda用のVPC作成
+  - serverless-offline #ローカルでの開発・テスト
+  - serverless-layers  #Lambda Layersを利用するためのプラグイン
+```
+
+```yml
+#client/serverless.yml抜粋
+plugins:
+  - serverless-s3-sync #ビルドしたフロントエンドのS3アップロード
+  - serverless-cloudfront-invalidate #CloudFrontのキャッシュ削除自動化
 ```
 
 *※2 DynamoDBレコードの構成は以下の通り。*
