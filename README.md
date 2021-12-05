@@ -113,7 +113,7 @@ REACT_APP_API_URL_DEV="http://localhost:3000/dev"
 
 以下の内容が`deploy.ps1`実行後に表示されるため、`Webhook URL`をMessaging APIの`Webhook URL`に、`Endpoint URL`をLIFFの`Endpoint URL`に設定する
 
-```shell
+```text
 *********************************
 **LINE DEVELOPERS CONFIGURATION**
 Webhook URL for LINE Messaging API
