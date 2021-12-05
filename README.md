@@ -20,6 +20,8 @@
 
 ## 使い方
 
+node.jsの開発環境と、aws cli、serverless frameworkがインストールされている前提で以下の通り進めていく。
+
 ### ⓪ LINE DEVELOPERSで、Messaging APIと、開発環境用・本番環境用それぞれのLIFFを設定
 
 下図のように、Messaging APIと、開発環境用・本番環境用それぞれのLIFFで計3つのチャネルを作成する。
@@ -139,6 +141,7 @@ plugins:
   - serverless-dynamodb-local #Server側：DynamoDB接続部分の開発・テスト用
   - serverless-vpc-plugin #Server側：Lambda用のVPC作成
   - serverless-offline #Server側：ローカルでの開発・テスト
+  - serverless-layers  #Server側：Lambda Layersを利用するためのプラグイン
   - serverless-s3-sync #Client側：ビルドしたフロントエンドのS3アップロード
   - serverless-cloudfront-invalidate #Client側：CloudFrontのキャッシュ削除自動化
 ```
@@ -256,21 +259,22 @@ Leaveを押下すると、確認のモーダルウィンドウが表示され、
 
 本ドキュメント。
 
-#### /doc
+#### doc/
 
 本ドキュメントで引用する画像などを格納。
 
 #### deploy.ps1
 
 `server`および`client`に格納されたソースをServerless Frameworkで一括デプロイするためのツール。  
-Powershellベースで記述している。
+Powershellベースで記述している。  
+大まかにいうとバックエンド側のデプロイ→バックエンドのURL情報などを参照しつつReactソースをビルド→クライアント側のデプロイという流れ。
 
-### /server
+### server/
 
 バックエンド側のロジックを格納している。  
 `server/serverless.yml`に記述したとおりに、AWS上にバックエンドのリソースがデプロイされる。
 
-#### /server/functions
+#### server/functions/
 
 クライアントもしくはEventBridge経由で呼び出される、メインのロジックを格納。
 
@@ -279,7 +283,7 @@ webhook.js #フォロー時、メッセージ投稿時の動作（＝LINE Messag
 feed.js #設定画面での各種操作で呼び出すAPIを記述
 ```
 
-#### /server/io
+#### server/io/
 
 DynamoDBを操作するためのロジックを格納。
 
@@ -289,7 +293,7 @@ follow.js #フォローorブロック解除時、フォロー解除orブロッ�
 subscribe.js #記事の定期もしくは手動配信の際にserver/functions/webhook.jsから呼び出され、DynamoDBを操作する。
 ```
 
-#### /server/lib
+#### server/lib/
 
 ```shell
 logger.js #アクセスログをコンソールに出力
@@ -298,14 +302,14 @@ getFeedContents.js #URLと最終取得日付を引数に、記事情報を取得
 createMessages.js #イベントタイプがmessageだった場合のLineにプッシュするメッセージを作成
 ```
 
-### /client
+### client/
 
 クライアント側（＝設定画面）のロジックを格納している。  
 `client/serverless.yml`に記述したとおりに、AWS上にバックエンドのリソースがデプロイされる。  
 前述の通り、Reactベースで構築している。  
 （今後修正する時間があればもう少しコンポーネントを分割して記述したい。あと、serverless frameworkを使わなくても、AWS CLIでデプロイすればよかったかも。）
 
-#### /client/src
+#### client/src/
 
 `create-react-app`でひな形を作った後、独自に追加して資源について説明する。
 
@@ -314,7 +318,7 @@ api.js #api(/server/functions/feed.js)を呼び出すための関数を定義。
 store.js #useContextおよびuseReducerで、ユーザ情報を格納するグローバルストアを定義。
 ```
 
-#### /client/src/components
+#### client/src/components/
 
 ```shell
 Layout #レイアウトを定義するとともに、LIFFライブラリ経由でユーザ常用を読み込み、グローバルストアに格納。
@@ -328,8 +332,40 @@ Body #ボディ部分のロジック。
 
 ### https化
 
+LIFFが連携するURL（Endpoint URL）が、httpsサイトでないと設定できないことが途中で判明。  
+本番環境については、S3にホスティングしているURLを直接指定するのではなく、Cloudfrontを追加でデプロイすることで、CloudfrontのURLはhttps化しているためそちらを指定することで解決した。  
+開発環境については、`yarn start`ではどうしても`http://localhost:3000`になってしまうと思っていたが、[こちらのサイト](https://chaika.hatenablog.com/entry/2020/09/08/083000)を参照し`.env.development.local`で`HTTPS = "true"`を定義することで簡単にhttps化できることを知り、それで解決できた。  
+自分でオレオレ証明書を発行して・・・とそれなりに面倒な手順を踏もうかと思っていたので、助かりました。
+
 ### outbound80の手動穴あけ
 
-### TypeError: Cannot read property 'pipesCount' of undefined
+RSSフィード配信サイトに情報を取りに行く際、LambdaがインターネットアクセスするためにVPC・NAT Gateway等の定義をする必要があったが、それらを簡単に実施するために`serverless-vpc-plugin`を使って開発していた。  
+その後、Lambda上でテストをする中でRSSフィードをうまく取得できるサイトと、取得できないサイトがあることがわかった。  
+原因を調べていくと`serverless-vpc-plugin`で構築した中でLambdaに割り当てられるセキュリティグループは、インターネットへのアウトバウンドアクセスが443（https）しか許可されておらず、"http://~"の配信サイトにアクセスできていないことが判明（特に、画像データだけはhttps→httpにリダイレクトして配信しているようなサイトもあり、なかなか検知しづらかったです・・・）。  
+`serverless.yml`上に自分でVPC等のリソースを定義しようかとも考えたが、結局`deploy.ps1`上でLambda実行用のセキュリティグループにOutbound 80ポートの穴あけを追加で定義することで解決しました。
+
+```shell
+#deploy.ps1抜粋
+$TEMP_SG = aws cloudformation describe-stacks --output text --stack-name feed-notify-dev --query 'Stacks[].Outputs[?OutputKey==`AppSecurityGroupId`].[OutputValue]'
+aws ec2 authorize-security-group-egress --group-id $TEMP_SG --ip-permissions IpProtocol=tcp, FromPort=80, ToPort=80, IpRanges='[{CidrIp=0.0.0.0/0,Description="HTTP ACCESS for RSS Feed Subscribe"}]'
+Write-Output "Outbound HTTP Access added to Security Group"
+```
+
+### TypeError: Cannot read property 'pipe' of undefined
+
+開発している途中で、`sls deploy`するとタイトルの通りのエラーが表示されるようになった。  
+調査した結果、**私の場合は`serverless-layers`と`serverless-s3-sync`の両方を同一ディレクトリにインストールしていたことが原因**と判明。（もともと`server/serverless.yml`でクライアント側のソースも含めて一括デプロイしていました）  
+`serverless-layers`は`server`ディレクトリ、`serverless-s3-sync`は`client`ディレクトリにインストールし、それぞれのディレクトリに分割して`serverless.yml`を定義たうえで`deploy.ps1`を用いて一括実行する形に見直すことで解決した。
 
 ### yarn build時の環境変数読み込み
+
+`deploy.ps1`でバックエンド側のデプロイとクライアント側のソースビルド・デプロイを一括実行するようスクリプトを組む中で、タイトル部分の挙動が手動実行時と違うことを検知した。  
+もともとスクリプトを組む前は[こちらのサイト](https://chaika.hatenablog.com/entry/2020/10/14/083000)を参考にproduction環境での環境変数を`env.production`に定義していたが、スクリプト上で`.env.production`ファイルを作成&`yarn build`を実行するとうまく`env.production`ファイルを読み込まないことが判明。  
+以下のように`.env.production`ファイルを使わず、直接環境変数に設定することで解決しました。おそらく権限周りの問題なのだと思われるが、よくわからず・・・。
+
+```shell
+#deploy.ps1抜粋
+$env:REACT_APP_API_URL_PROD = aws cloudformation describe-stacks --output text --stack-name feed-notify-dev --query 'Stacks[].Outputs[?OutputKey==`ServiceEndpoint`].[OutputValue]'
+yarn build
+Write-Output "Client App Built"
+```
